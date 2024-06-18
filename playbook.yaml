@@ -1,0 +1,44 @@
+
+---
+- name: Deploy Hiddify-Manager
+  hosts: all 
+  become: true
+  environment:
+      TERM: xterm
+
+  tasks:
+    - name: check if hiddify is installed
+      stat:
+        path: /opt/hiddify-manager/current.json
+      register: is_installed
+
+    - name: Download hiddify install script
+      get_url:
+        url: https://raw.githubusercontent.com/hiddify/Hiddify-Manager/main/common/download.sh
+        dest: /tmp/hiddify.sh
+        mode: 0775
+      when: not is_installed.stat.exists
+
+    - name: Install hiddify
+      shell: VER=release /tmp/hiddify.sh
+      when: not is_installed.stat.exists
+      ignore_errors: yes
+
+    - name: Get hiddify status
+      args:
+        chdir: /opt/hiddify-manager
+        executable: /bin/bash
+
+      shell: |
+        . common/utils.sh
+        check_hiddify_panel
+        cat /opt/hiddify-manager/current.json | jq -r '.panel_links[]'
+        echo -e "Hiddify is installed "
+      register: hiddify
+
+    - name: Print check_hiddify_panel ouptput
+      set_fact:
+        dummy: value # Just to make some task without output
+      with_items:
+        - "{{ hiddify.stdout }}"
+
